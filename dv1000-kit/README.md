@@ -94,6 +94,30 @@ binaire (sinon : `Invalid params: unknown model id`).
 | `GROK_FF_PROFILE` | profil Firefox du pont | ~/.mozilla/firefox/grokbuild |
 | `GROK_HOME` | racine config CLI | ~/.grok |
 
+## Supprimer / allonger le timeout d'attente de réponse
+
+Aucune recompilation : `GROK_BRIDGE_TIMEOUT` est lu au lancement (défaut 660 s).
+Pour pratiquement supprimer l'attente max, exporte une valeur énorme :
+
+```bash
+export GROK_BRIDGE_TIMEOUT=86400   # 24 h
+```
+
+Si ton bridge accepte la valeur `0` comme « sans limite », `export GROK_BRIDGE_TIMEOUT=0`
+convient aussi — le code du bridge n'étant pas dans ce dépôt, la sémantique de `0`
+n'est pas garantie ; une valeur très grande marche toujours.
+
+Mémo ordre complet :
+
+```bash
+./scripts/apply-nemapi-config.sh
+export NEMAPI_API_KEY=local
+export GROK_BRIDGE_TIMEOUT=86400
+```
+
+Note : un timeout HTTP interne au CLI lui-même (hors pont) serait compilé dans le
+binaire et demanderait un patch + rebuild ; ce n'est PAS le cas du timeout du pont.
+
 ## Diagnostic rapide
 
 | Symptôme | Cause | Correction |
