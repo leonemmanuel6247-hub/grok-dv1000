@@ -1,26 +1,146 @@
-# Default grok-build config for the NemApi gateway.
-# Copy to ~/.grok/config.toml (on the host, not inside any container).
+# Config « pont Firefox » (NemApi / bridge) pour grok-build — dv1000 i686.
 #
-# NemApi is a separate local OpenAI-compatible gateway (https://github.com/teteekoue/NemApi).
-# Run it on 127.0.0.1:8090, then launch this CLI. All inference goes to it.
+# Installation : ./scripts/apply-nemapi-config.sh
+#   -> écrit ~/.grok/config.toml ET ~/.grok/rules/grok-bridge-system.md
+#
+# UNE SEULE CLE : NEMAPI_API_KEY (locale, factice "local" suffit si le pont
+# n'exige pas de protection ; la mettre en dur ici n'est jamais nécessaire).
+#
+# Le CLI parle au pont sur 127.0.0.1:8090 (OpenAI-compatible) qui route vers
+# l'onglet du fournisseur via l'extension Firefox. AUCUNE requête ne part
+# vers xAI si ces endpoints restent à 127.0.0.1:8090.
 
 [models]
-default = "deepseek-chat"
+default            = "deepseek-chat"   # onglet ouvert par défaut
+web_search         = "deepseek-chat"   # pas de service xAI
+image_description  = "deepseek-chat"
+session_summary    = "deepseek-chat"
+allowed_models     = []                # aucune restriction de catalogue
+agent_type         = "grok-build"      # pas d'agent xAI
 
-[endpoints]
+[endpoints]   # TOUS vers le pont : sinon le CLI contacte xAI
 cli_chat_proxy_base_url = "http://127.0.0.1:8090/v1"
-xai_api_base_url = "http://127.0.0.1:8090/v1"
-models_base_url = "http://127.0.0.1:8090/v1"
-models_list_url = "http://127.0.0.1:8090/v1/models"
+xai_api_base_url        = "http://127.0.0.1:8090/v1"
+models_base_url         = "http://127.0.0.1:8090/v1"
+models_list_url         = "http://127.0.0.1:8090/v1/models"
 
 [auth]
-preferred_method = "api_key"
-# disable_api_key_auth = false   # leave false: NemApi key protection is off by default
-
-# Optional: if you enable key protection in NemApi's admin UI, export NEMAPI_API_KEY
-# instead of hardcoding it here.
+preferred_method     = "api_key"   # évite le login navigateur
+disable_api_key_auth = false       # le pont ne bloque pas la clé
 
 [features]
-telemetry = false
-remote_fetch = false
-write_file = true
+telemetry                = false   # aucune télémétrie xAI
+remote_fetch             = false   # aucun catalogue distant (sinon il écrase [model.*])
+write_file               = true
+subagent_model_inheritance = true   # pas de sous-agent dédié
+
+# ---------------------------------------------------------------------------
+# Un [model.<id>] PAR onglet fournisseur.
+# Déclaré ici => valide pour le CLI même absent du catalogue compilé.
+# (Le catalogue résolu priorise : config.toml [model.*] > prefetched > binaire.)
+# ---------------------------------------------------------------------------
+
+[model.deepseek-chat]
+model                    = "deepseek-chat"
+model_family             = "deepseek"
+name                     = "DeepSeek Chat"
+description              = "DeepSeek via pont Firefox (onglet chat.deepseek.com)"
+api_backend              = "chat_completions"
+base_url                 = "http://127.0.0.1:8090/v1"
+env_key                  = "NEMAPI_API_KEY"
+context_window           = 200000
+max_completion_tokens    = 8192
+supports_backend_search   = false
+supports_reasoning_effort = false
+system_prompt_label      = "grok-build"
+temperature              = 0.7
+
+[model.qwen-chat]
+model                    = "qwen-chat"
+model_family             = "qwen"
+name                     = "Qwen Chat"
+description              = "Qwen via pont Firefox (onglet chat.qwen.ai)"
+api_backend              = "chat_completions"
+base_url                 = "http://127.0.0.1:8090/v1"
+env_key                  = "NEMAPI_API_KEY"
+context_window           = 200000
+max_completion_tokens    = 8192
+supports_backend_search   = false
+supports_reasoning_effort = false
+system_prompt_label      = "grok-build"
+temperature              = 0.7
+
+[model.claude-chat]
+model                    = "claude-chat"
+model_family             = "anthropic"
+name                     = "Claude Chat"
+description              = "Claude via pont Firefox (onglet claude.ai)"
+api_backend              = "chat_completions"
+base_url                 = "http://127.0.0.1:8090/v1"
+env_key                  = "NEMAPI_API_KEY"
+context_window           = 200000
+max_completion_tokens    = 8192
+supports_backend_search   = false
+supports_reasoning_effort = false
+system_prompt_label      = "grok-build"
+temperature              = 0.7
+
+[model.gemini-chat]
+model                    = "gemini-chat"
+model_family             = "google"
+name                     = "Gemini Chat"
+description              = "Gemini via pont Firefox (onglet gemini.google.com)"
+api_backend              = "chat_completions"
+base_url                 = "http://127.0.0.1:8090/v1"
+env_key                  = "NEMAPI_API_KEY"
+context_window           = 200000
+max_completion_tokens    = 8192
+supports_backend_search   = false
+supports_reasoning_effort = false
+system_prompt_label      = "grok-build"
+temperature              = 0.7
+
+[model.gpt-chat]
+model                    = "gpt-chat"
+model_family             = "openai"
+name                     = "GPT Chat"
+description              = "GPT via pont Firefox (onglet chatgpt.com)"
+api_backend              = "chat_completions"
+base_url                 = "http://127.0.0.1:8090/v1"
+env_key                  = "NEMAPI_API_KEY"
+context_window           = 200000
+max_completion_tokens    = 8192
+supports_backend_search   = false
+supports_reasoning_effort = false
+system_prompt_label      = "grok-build"
+temperature              = 0.7
+
+[model.kimi-chat]
+model                    = "kimi-chat"
+model_family             = "moonshot"
+name                     = "Kimi Chat"
+description              = "Kimi via pont Firefox (onglet kimi.com)"
+api_backend              = "chat_completions"
+base_url                 = "http://127.0.0.1:8090/v1"
+env_key                  = "NEMAPI_API_KEY"
+context_window           = 200000
+max_completion_tokens    = 8192
+supports_backend_search   = false
+supports_reasoning_effort = false
+system_prompt_label      = "grok-build"
+temperature              = 0.7
+
+[model.glm-chat]
+model                    = "glm-chat"
+model_family             = "zhipu"
+name                     = "GLM Chat"
+description              = "GLM (Z.ai) via pont Firefox (onglet chat.z.ai)"
+api_backend              = "chat_completions"
+base_url                 = "http://127.0.0.1:8090/v1"
+env_key                  = "NEMAPI_API_KEY"
+context_window           = 200000
+max_completion_tokens    = 8192
+supports_backend_search   = false
+supports_reasoning_effort = false
+system_prompt_label      = "grok-build"
+temperature              = 0.7
