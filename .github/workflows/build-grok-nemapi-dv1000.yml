@@ -52,6 +52,25 @@ jobs:
           cp -a /tmp/protoc/include/. /usr/local/include/
           protoc --version
 
+      # ripgrep 15.0.0 ne publie pas d'asset i686-unknown-linux-musl : le
+      # build.rs de xai-grok-tools ferait un HTTP 404. On le compile depuis
+      # les sources pour i686-unknown-linux-gnu (glibc 2.36 = Debian 12,
+      # exactement la glibc du dv1000) et on le fournit via l'override prevu
+      # par le build.rs (GROK_TOOLS_BUNDLE_RG_PATH).
+      - name: Compiler ripgrep 15.0.0 pour i686 (pas d'asset i686 publie)
+        run: |
+          set -e
+          export PATH="$HOME/.cargo/bin:$PATH"
+          export CC_i686_unknown_linux_gnu=i686-linux-gnu-gcc
+          export CXX_i686_unknown_linux_gnu=i686-linux-gnu-g++
+          export CARGO_TARGET_I686_UNKNOWN_LINUX_GNU_LINKER=i686-linux-gnu-gcc
+          cargo install ripgrep --version 15.0.0 --locked \
+            --target i686-unknown-linux-gnu \
+            --root /tmp/rg-dv1000
+          file /tmp/rg-dv1000/bin/rg
+          file /tmp/rg-dv1000/bin/rg | grep -q 'ELF 32-bit'
+          echo "GROK_TOOLS_BUNDLE_RG_PATH=/tmp/rg-dv1000/bin/rg" >> "$GITHUB_ENV"
+
       - name: Build xai-grok-pager (i686, release, no jemalloc)
         run: |
           export PATH="$HOME/.cargo/bin:$PATH"
