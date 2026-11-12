@@ -177,24 +177,47 @@ mod ns_lockdown {
 
 /// Connect/send equivalents, including `io_uring_*` / `sendmmsg` which never enter `SYS_connect` / `SYS_sendmsg`.
 #[cfg(target_os = "linux")]
-fn child_network_blocked_syscalls() -> [u32; 11] {
-    use libc::{
-        SYS_accept, SYS_accept4, SYS_bind, SYS_connect, SYS_io_uring_enter, SYS_io_uring_register,
-        SYS_io_uring_setup, SYS_listen, SYS_sendmmsg, SYS_sendmsg, SYS_sendto,
-    };
-    [
-        SYS_connect as u32,
-        SYS_bind as u32,
-        SYS_sendto as u32,
-        SYS_sendmsg as u32,
-        SYS_sendmmsg as u32,
-        SYS_listen as u32,
-        SYS_accept as u32,
-        SYS_accept4 as u32,
-        SYS_io_uring_setup as u32,
-        SYS_io_uring_enter as u32,
-        SYS_io_uring_register as u32,
-    ]
+fn child_network_blocked_syscalls() -> Vec<u32> {
+    // i386 n'a pas de syscall `accept` separe (asm/unistd_32.h) : accept() en C est servi par accept4.
+    #[cfg(target_arch = "x86")]
+    {
+        use libc::{
+            SYS_accept4, SYS_bind, SYS_connect, SYS_io_uring_enter, SYS_io_uring_register,
+            SYS_io_uring_setup, SYS_listen, SYS_sendmmsg, SYS_sendmsg, SYS_sendto,
+        };
+        return vec![
+            SYS_connect as u32,
+            SYS_bind as u32,
+            SYS_sendto as u32,
+            SYS_sendmsg as u32,
+            SYS_sendmmsg as u32,
+            SYS_listen as u32,
+            SYS_accept4 as u32,
+            SYS_io_uring_setup as u32,
+            SYS_io_uring_enter as u32,
+            SYS_io_uring_register as u32,
+        ];
+    }
+    #[cfg(not(target_arch = "x86"))]
+    {
+        use libc::{
+            SYS_accept, SYS_accept4, SYS_bind, SYS_connect, SYS_io_uring_enter, SYS_io_uring_register,
+            SYS_io_uring_setup, SYS_listen, SYS_sendmmsg, SYS_sendmsg, SYS_sendto,
+        };
+        vec![
+            SYS_connect as u32,
+            SYS_bind as u32,
+            SYS_sendto as u32,
+            SYS_sendmsg as u32,
+            SYS_sendmmsg as u32,
+            SYS_listen as u32,
+            SYS_accept as u32,
+            SYS_accept4 as u32,
+            SYS_io_uring_setup as u32,
+            SYS_io_uring_enter as u32,
+            SYS_io_uring_register as u32,
+        ]
+    }
 }
 
 #[cfg(target_os = "linux")]

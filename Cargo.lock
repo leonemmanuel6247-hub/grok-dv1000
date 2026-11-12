@@ -3264,8 +3264,6 @@ dependencies = [
 [[package]]
 name = "fastant"
 version = "0.1.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "62bf7fa928ce0c4a43bd6e7d1235318fc32ac3a3dea06a2208c44e729449471a"
 dependencies = [
  "small_ctor",
  "web-time",
@@ -6683,8 +6681,6 @@ checksum = "9737e026353e5cd0736f98eddae28665118eb6f6600902a7f50db585621fecb6"
 [[package]]
 name = "nono"
 version = "0.53.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ae7eb523cc2036e9ad6527411c3da5dc2172dc454cc3447a03b910420a39bfee"
 dependencies = [
  "der",
  "getrandom 0.4.1",

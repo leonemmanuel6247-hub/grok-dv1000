@@ -655,11 +655,18 @@ mod platform {
         frequency_hz: i32,
         svg_path: &Path,
     ) -> Result<Box<dyn ProfilerEngine>, ControlError> {
-        let guard = pprof::ProfilerGuardBuilder::default()
-            .frequency(frequency_hz)
-            .blocklist(&["libc", "libgcc", "pthread", "vdso"])
+        let builder = pprof::ProfilerGuardBuilder::default().frequency(frequency_hz);
+        // pprof n'expose `blocklist` que sur 64 bits (x86_64/aarch64/riscv64/loongarch64).
+        #[cfg(any(
+            target_arch = "x86_64",
+            target_arch = "aarch64",
+            target_arch = "riscv64",
+            target_arch = "loongarch64"
+        ))]
+        let builder = builder.blocklist(&["libc", "libgcc", "pthread", "vdso"]);
+        let guard = builder
             .build()
-            .map_err(|err| {
+            .map_err(|err: pprof::Error| {
                 ControlError::with_details(
                     ControlErrorCode::InternalError,
                     "failed to start CPU profiler",
