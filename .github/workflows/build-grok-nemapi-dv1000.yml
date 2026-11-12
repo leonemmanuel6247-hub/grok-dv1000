@@ -72,11 +72,20 @@ jobs:
           echo "GROK_TOOLS_BUNDLE_RG_PATH=/tmp/rg-dv1000/bin/rg" >> "$GITHUB_ENV"
           echo "GROK_SHELL_BUNDLE_RG_PATH=/tmp/rg-dv1000/bin/rg" >> "$GITHUB_ENV"
 
+      - name: Cache cargo/target (workspace ~4500 crates, evite de tout recompiler a chaque run)
+        uses: swatinem/rust-cache@v2
+        with:
+          key: i686-dv1000-release
+
       - name: Build xai-grok-pager (i686, release, no jemalloc)
         run: |
           export PATH="$HOME/.cargo/bin:$PATH"
           export CARGO_INCREMENTAL=0
-          export CARGO_BUILD_JOBS=4
+          export CARGO_BUILD_JOBS=2
+          # Le profil release du workspace impose codegen-units=1 : le plus gros
+          # crate fait SIGKILL sur le runner (RAM). Env seulement, aucun fichier
+          # du depot modifie ; opt-level=2 et panic=abort inchanges.
+          export CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16
           # C/C++ cross vers i386 (Debian 12 multiarch)
           export CC=i686-linux-gnu-gcc
           export CXX=i686-linux-gnu-g++
