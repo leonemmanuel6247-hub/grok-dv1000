@@ -1,0 +1,26 @@
+# Default grok-build config for the NemApi gateway.
+# Copy to ~/.grok/config.toml (on the host, not inside any container).
+#
+# NemApi is a separate local OpenAI-compatible gateway (https://github.com/teteekoue/NemApi).
+# Run it on 127.0.0.1:8090, then launch this CLI. All inference goes to it.
+
+[models]
+default = "deepseek-chat"
+
+[endpoints]
+cli_chat_proxy_base_url = "http://127.0.0.1:8090/v1"
+xai_api_base_url = "http://127.0.0.1:8090/v1"
+models_base_url = "http://127.0.0.1:8090/v1"
+models_list_url = "http://127.0.0.1:8090/v1/models"
+
+[auth]
+preferred_method = "api_key"
+# disable_api_key_auth = false   # leave false: NemApi key protection is off by default
+
+# Optional: if you enable key protection in NemApi's admin UI, export NEMAPI_API_KEY
+# instead of hardcoding it here.
+
+[features]
+telemetry = false
+remote_fetch = false
+write_file = true

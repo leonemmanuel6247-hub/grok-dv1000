@@ -1,0 +1,88 @@
+name: build-grok-nemapi-dv1000
+
+# Grok Build (Apache-2.0) compile "a l'image de la machine" :
+# Debian 12 (bookworm) 32 bits i686, Pentium M / 2 GiB RAM.
+# Le build tourne sur un runner x86_64 qui cross-compile au triplet
+# i686-unknown-linux-gnu (comme MACHINE.md, mais avec la RAM d'un runner).
+# Le binaire cible : artefact grok-dv1000-i686.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: debian:bookworm
+
+    steps:
+      - name: Recuperation du code
+        uses: actions/checkout@v4
+
+      - name: Dependances systeme (toolchain cross i686, comme le dv1000)
+        run: |
+          dpkg --add-architecture i386
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            build-essential \
+            gcc-i686-linux-gnu g++-i686-linux-gnu \
+            libc6-dev-i386 \
+            pkg-config \
+            libssl-dev:i386 zlib1g-dev:i386 libsqlite3-dev:i386 \
+            cmake make perl \
+            ca-certificates curl unzip git python3 xz-utils file binutils
+
+      - name: Rust 1.94.0 (x86_64 hote, target i686-unknown-linux-gnu)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.94.0
+          targets: i686-unknown-linux-gnu
+          components: rustfmt, clippy
+
+      - name: Installer protoc 29.3 (binaire hote x86_64)
+        run: |
+          curl -fsSL -o /tmp/protoc.zip \
+            https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-linux-x86_64.zip
+          unzip -q -o /tmp/protoc.zip -d /tmp/protoc
+          install -m 0755 /tmp/protoc/bin/protoc /usr/local/bin/protoc
+          cp -a /tmp/protoc/include/. /usr/local/include/
+          protoc --version
+
+      - name: Build xai-grok-pager (i686, release, no jemalloc)
+        run: |
+          export PATH="$HOME/.cargo/bin:$PATH"
+          export CARGO_INCREMENTAL=0
+          export CARGO_BUILD_JOBS=4
+          # C/C++ cross vers i386 (Debian 12 multiarch)
+          export CC=i686-linux-gnu-gcc
+          export CXX=i686-linux-gnu-g++
+          export CC_i686_unknown_linux_gnu=i686-linux-gnu-gcc
+          export CXX_i686_unknown_linux_gnu=i686-linux-gnu-g++
+          export AR_i686_unknown_linux_gnu=x86_64-linux-gnu-ar
+          export CARGO_TARGET_I686_UNKNOWN_LINUX_GNU_LINKER=i686-linux-gnu-gcc
+          export PKG_CONFIG_ALLOW_CROSS=1
+          export PKG_CONFIG_PATH=/usr/lib/i386-linux-gnu/pkgconfig:/usr/share/pkgconfig
+          export PROTOC="$(command -v protoc)"
+          cargo build --release -p xai-grok-pager-bin \
+            --target i686-unknown-linux-gnu \
+            --no-default-features \
+            --features stock,sandbox-enforce
+
+      - name: Verifier que le binaire est bien un ELF 32 bits
+        run: |
+          file target/i686-unknown-linux-gnu/release/xai-grok-pager
+          readelf -h target/i686-unknown-linux-gnu/release/xai-grok-pager | grep -E 'Class|Machine|Type'
+          readelf -h target/i686-unknown-linux-gnu/release/xai-grok-pager | grep -q ELF32
+          readelf -h target/i686-unknown-linux-gnu/release/xai-grok-pager | grep -q 'Intel 80386'
+
+      - name: Publier le binaire
+        uses: actions/upload-artifact@v4
+        with:
+          name: grok-dv1000-i686
+          path: target/i686-unknown-linux-gnu/release/xai-grok-pager
+          if-no-files-found: error
+          retention-days: 90
