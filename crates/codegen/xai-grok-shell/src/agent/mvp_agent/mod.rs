@@ -1111,7 +1111,10 @@ fn resolve_inference_idle_timeout_secs(
         .or_else(|| models.values().find(|entry| entry.info.has_model_id(model)))
         .and_then(|entry| entry.info.inference_idle_timeout_secs);
     let remote = remote_settings.and_then(|s| s.inference_idle_timeout_secs);
-    per_model.or(remote).unwrap_or(600).max(10)
+    // dv1000 (bridge Firefox) : les generations peuvent etre tres longues via
+    // l'onglet du fournisseur ; defaut releve de 600 s a 86400 s (24 h).
+    // Toujours surchargeable par `inference_idle_timeout_secs` (per-model ou remote).
+    per_model.or(remote).unwrap_or(86400).max(10)
 }
 /// Resolve the subagent 429 wait-attempt budget: env, then config.toml (per-model), then remote, then default.
 pub(crate) fn resolve_subagent_rate_limit_max_attempts(

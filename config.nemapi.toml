@@ -17,6 +17,7 @@ image_description  = "deepseek-chat"
 session_summary    = "deepseek-chat"
 allowed_models     = []                # aucune restriction de catalogue
 agent_type         = "grok-build"      # pas d'agent xAI
+inference_idle_timeout_secs = 86400    # 24 h — générations longues via le pont (défaut binaire relevé aussi)
 
 [endpoints]   # TOUS vers le pont : sinon le CLI contacte xAI
 cli_chat_proxy_base_url = "http://127.0.0.1:8090/v1"

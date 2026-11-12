@@ -118,6 +118,20 @@ export GROK_BRIDGE_TIMEOUT=86400
 Note : un timeout HTTP interne au CLI lui-même (hors pont) serait compilé dans le
 binaire et demanderait un patch + rebuild ; ce n'est PAS le cas du timeout du pont.
 
+## Timeout côté CLI (inférence, hors pont)
+
+Le binaire `dv1000` fourni embarque, depuis le commit courant, un **défaut de
+600 s relevé à 86400 s** pour le timeout d'attente de réponse de l'inférence
+(`resolve_inference_idle_timeout_secs`). Tu peux aussi le fixer par toi-même
+sans recompiler, pour un modèle précis ou globalement :
+
+```toml
+[models]                         # global, défaut pour tous les modèles
+inference_idle_timeout_secs = 86400
+# [model.deepseek-chat]          # ou par modèle
+# inference_idle_timeout_secs = 86400
+```
+
 ## Diagnostic rapide
 
 | Symptôme | Cause | Correction |
