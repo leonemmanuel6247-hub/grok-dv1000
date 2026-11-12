@@ -70,6 +70,7 @@ jobs:
           file /tmp/rg-dv1000/bin/rg
           file /tmp/rg-dv1000/bin/rg | grep -q 'ELF 32-bit'
           echo "GROK_TOOLS_BUNDLE_RG_PATH=/tmp/rg-dv1000/bin/rg" >> "$GITHUB_ENV"
+          echo "GROK_SHELL_BUNDLE_RG_PATH=/tmp/rg-dv1000/bin/rg" >> "$GITHUB_ENV"
 
       - name: Build xai-grok-pager (i686, release, no jemalloc)
         run: |
