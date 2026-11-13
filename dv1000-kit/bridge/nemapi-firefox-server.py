@@ -15,12 +15,15 @@ Rôles implémentés :
   2. Prompt système ENVOYÉ UNE SEULE FOIS par conversation (table de sessions)
   3. Envoi en DELTA : seuls les nouveaux messages (user / tool) sont relayés
   4. Extraction du premier JSON d'outil valide (```json, <tool_call>, {..} équilibré)
-  5. Validation stricte : name dans la liste `tools` reçue, arguments JSON valides
-     (sinon finish_reason="stop" — JAMAIS d'invention d'outil)
-  6. Sortie OpenAI propre : tool_calls (arguments en string JSON) ou stop
-  7. SSE streaming : deltas texte puis chunk(s) tool_calls puis [DONE]
-  8. Sessions : POST /reset {conversation_id} pour forcer le prochain prompt système
-  9. Audit : log JSONL des tool_calls nettoyés vers logs/bridge-host.log
+  5. Validation stricte : name dans la liste `tools` reçue ∪ {speech, thought},
+     sinon finish_reason="stop" — JAMAIS d'invention d'outil
+  6. Canaux virtuels speech/thought => texte simple du CLI (finish_reason "stop")
+  7. Sortie OpenAI propre : tool_calls (arguments en string JSON) ou stop
+  8. Réessai automatique UNIQUE si la sortie n'est pas un JSON valide : le
+     prompt d'échec (grok-json-compat-retry.md) est réinjecté dans la conversation
+  9. SSE streaming : deltas texte puis chunk(s) tool_calls puis [DONE]
+ 10. Sessions : POST /reset {conversation_id} pour forcer le prochain prompt système
+ 11. Audit : log JSONL des tool_calls nettoyés vers logs/bridge-host.log
 
 Contrat FILAIRE TCP 8091 (voir grok-bridge-host.py et README.md du même dossier) :
   -> {"type":"prompt","id":"<uuid>","model":"<id>","reset":bool,
@@ -57,7 +60,14 @@ SYSTEM_PROMPT_FILE = os.environ.get(
     "GROK_BRIDGE_SYSTEM_FILE",
     os.path.expanduser("~/.grok/rules/grok-bridge-system.md"),
 )
+COMPAT_PROMPT_FILE = os.environ.get(
+    "GROK_BRIDGE_COMPAT_FILE",
+    os.path.expanduser("~/.grok/rules/grok-json-compat-retry.md"),
+)
 AUDIT_LOG = os.environ.get("GROK_BRIDGE_LOG", "logs/bridge-host.log")
+# Canaux virtuels TOUJOURS autorisés (jamais dans la liste tools du CLI) :
+# speech/thought => texte simple dans le CLI (finish_reason "stop").
+VIRTUAL_CHANNELS = ("speech", "thought")
 
 _sessions_lock = threading.Lock()
 _initialized: set[str] = set()          # conversation_id -> prompt système envoyé
@@ -85,6 +95,17 @@ def load_system_prompt() -> str:
 
 
 SYSTEM_PROMPT = load_system_prompt()
+
+
+def load_compat_prompt() -> str:
+    try:
+        with open(COMPAT_PROMPT_FILE, "r", encoding="utf-8") as fh:
+            return fh.read().strip()
+    except OSError:
+        return ""   # réessai automatique désactivé si le fichier est absent
+
+
+COMPAT_PROMPT = load_compat_prompt()
 
 
 def conversation_key(body: dict, headers) -> str:
@@ -188,7 +209,7 @@ def _normalize(obj):
 
 def clean_tool_call(raw: str, valid_names: list[str] | None):
     """Retourne {"name","arguments(dict)"} ou None (fallback -> texte)."""
-    valid = set(valid_names or [])
+    valid = set(valid_names or []) | set(VIRTUAL_CHANNELS)
     candidates = []
     candidates += _FENCE_RE.findall(raw)
     candidates += _TAG_RE.findall(raw)
@@ -202,8 +223,8 @@ def clean_tool_call(raw: str, valid_names: list[str] | None):
         if not norm:
             continue
         name, args = norm
-        if valid and name not in valid:
-            continue                       # refus : outil non déclaré
+        if name not in valid:
+            continue                       # refus : outil non déclaré ni canal virtuel
         if isinstance(args, str):
             try:
                 args = json.loads(args)
@@ -213,8 +234,39 @@ def clean_tool_call(raw: str, valid_names: list[str] | None):
             args = {}
         if not isinstance(args, dict):
             continue
+        if name in VIRTUAL_CHANNELS and not isinstance(args.get("text"), str):
+            continue                       # canaux virtuels : exigent {"text": str}
         return {"name": name, "arguments": args}
     return None
+
+
+def virtual_text(tc: dict) -> str:
+    text = (tc.get("arguments") or {}).get("text")
+    return text.strip() if isinstance(text, str) else ""
+
+
+def compat_retry(model: str, conv: str, tools: list[str], first_delta: list[dict]):
+    """UN seul réessai : réinjecter le prompt d'échec JSON dans la conversation.
+
+    Retourne (raw, tc). tc=None si le réessai échoue ou est désactivé.
+    Le réessai est un delta (prompt système déjà envoyé au tour initial).
+    """
+    if not COMPAT_PROMPT:
+        return "", None
+    delta = list(first_delta) + [{"role": "user", "content": COMPAT_PROMPT}]
+    payload = {"type": "prompt", "id": uuid.uuid4().hex, "model": model,
+               "reset": False, "first": False, "delta": delta, "tools": tools}
+    try:
+        resp = bridge_request(payload)
+    except BridgeError as exc:
+        log_audit({"event": "compat_retry_error", "error": str(exc), "model": model,
+                   "conv": hashlib.sha256(conv.encode()).hexdigest()[:12]})
+        return "", None
+    if (resp or {}).get("error"):
+        log_audit({"event": "compat_retry_error", "error": str(resp["error"]), "model": model})
+        return "", None
+    raw = (resp or {}).get("content") or ""
+    return raw, clean_tool_call(raw, tools)
 
 
 def text_fallback(raw: str) -> str:
@@ -356,16 +408,32 @@ def handle_completion(body: dict, headers) -> tuple[int, dict, bool, str]:
         log_audit({"event": "bridge_error", "error": msg, "model": model})
         return code, {"error": {"message": msg, "type": "bridge_error"}}, False, ""
 
-    tc = clean_tool_call(raw, tools) if tools else None
-    audit = {"event": "tool_call" if tc else "text", "model": model,
-             "conv": hashlib.sha256(conv.encode()).hexdigest()[:12]}
+    tc = clean_tool_call(raw, tools)
+    if tc is None:
+        retried_raw, tc = compat_retry(model, conv, tools, delta)
+        if tc is not None:
+            log_audit({"event": "compat_retry_ok", "model": model, "tool": tc["name"],
+                       "conv": hashlib.sha256(conv.encode()).hexdigest()[:12]})
+        else:
+            log_audit({"event": "compat_retry_failed" if retried_raw else "invalid_output",
+                       "model": model,
+                       "conv": hashlib.sha256(conv.encode()).hexdigest()[:12],
+                       "raw_sha256": hashlib.sha256(raw.encode()).hexdigest()})
+            if retried_raw:
+                raw = retried_raw
+    conv12 = hashlib.sha256(conv.encode()).hexdigest()[:12]
     if tc:
-        audit["tool"] = tc["name"]
-        audit["args_sha256"] = hashlib.sha256(json.dumps(tc["arguments"], sort_keys=True).encode()).hexdigest()
+        if tc["name"] in VIRTUAL_CHANNELS:          # speech/thought -> texte simple
+            audit = {"event": tc["name"], "model": model, "conv": conv12,
+                     "chars": len(virtual_text(tc))}
+            log_audit(audit)
+            return 200, openai_response(model, content=virtual_text(tc), finish="stop"), stream, ""
+        audit = {"event": "tool_call", "model": model, "conv": conv12, "tool": tc["name"],
+                 "args_sha256": hashlib.sha256(json.dumps(tc["arguments"], sort_keys=True).encode()).hexdigest()}
         log_audit(audit)
         return 200, openai_response(model, tool_call=tc), stream, ""
+    log_audit({"event": "text", "model": model, "conv": conv12})
     txt = text_fallback(raw)
-    log_audit(audit)
     return 200, openai_response(model, content=txt, finish="stop"), stream, ""
 
 
@@ -441,6 +509,7 @@ def main() -> int:
     print(f"nemapi-firefox-server : OpenAI bridge sur http://127.0.0.1:{LISTEN}/v1", flush=True)
     print(f"bridge natif attendu sur {BRIDGE_HOST}:{BRIDGE_PORT} (GROK_BRIDGE_PORT)", flush=True)
     print(f"prompt systeme charge : {SYSTEM_PROMPT_FILE} ({len(SYSTEM_PROMPT)} chars)", flush=True)
+    print(f"prompt echec JSON    : {COMPAT_PROMPT_FILE} ({len(COMPAT_PROMPT)} chars)", flush=True)
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:

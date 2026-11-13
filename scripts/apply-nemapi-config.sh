@@ -7,6 +7,7 @@ set -eu
 # Installs:
 #   ~/.grok/config.toml                     (from config.nemapi.toml)
 #   ~/.grok/rules/grok-bridge-system.md     (system rules for the bridge)
+#   ~/.grok/rules/grok-json-compat-retry.md (JSON compat-failure correction prompt)
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 GROK_HOME="${GROK_HOME:-$HOME/.grok}"
@@ -17,6 +18,9 @@ echo "Wrote ${GROK_HOME}/config.toml"
 
 cp "${ROOT}/rules/grok-bridge-system.md" "${GROK_HOME}/rules/grok-bridge-system.md"
 echo "Wrote ${GROK_HOME}/rules/grok-bridge-system.md"
+
+cp "${ROOT}/rules/grok-json-compat-retry.md" "${GROK_HOME}/rules/grok-json-compat-retry.md"
+echo "Wrote ${GROK_HOME}/rules/grok-json-compat-retry.md"
 echo
 echo "Export the single key, open the provider tab in the bridge Firefox profile,"
 echo "then run:"

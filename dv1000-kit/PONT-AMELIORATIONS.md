@@ -9,7 +9,10 @@ complète, stdlib-only, du serveur (partie 1) et de l'hôte natif nativeMessagin
 + sessions (partie 2) — `nemapi-firefox-server.py`, `grok-bridge-host.py`,
 tests `test_bridge.py`, contrat filaire et manifest d'exemple documentés dans
 `dv1000-kit/bridge/README.md`. Deux voies possibles :
-1. Installer la référence telle quelle (elle est complète et testée hors-ligne) ;
+1. Installer la référence telle quelle (elle est complète et testée hors-ligne ;
+   elle gère aussi les canaux virtuels `speech`/`thought` → texte simple dans
+   le CLI, et réinjecte automatiquement, UNE fois, le contenu de
+   `rules/grok-json-compat-retry.md` quand la sortie n'est pas un JSON valide) ;
 2. Porter les mêmes fonctions dans TON pont existant (checklist ci-dessous).
 
 L'extension `content.js` (partie 3) reste hors périmètre : les sélecteurs du
@@ -109,8 +112,12 @@ def to_openai(tc):
 ## 4. Prompt système (déjà fait dans ce dépôt)
 
 `rules/grok-bridge-system.md` a été durci : format unique JSON, **interdiction
-de toute réponse sans appel d'outil**, envois en delta, une seule
-transmission du prompt système. Limites à connaître :
+de toute réponse sans JSON**, canaux `speech`/`thought` pour les réponses texte,
+règles d'échappement des caractères spéciaux (hexa `\uXXXX` ; décimal et
+base64 interdits au modèle), envois en delta, une seule transmission du prompt
+système. `rules/grok-json-compat-retry.md` accompagne : à réinjecter UNE fois
+après une production non-JSON (le pont de référence le fait automatiquement ;
+ton pont doit en faire autant). Limites à connaître :
 
 - Interdire toute prose empêche aussi les réponses purement explicatives ;
   c'est exactement ce que tu as demandé — à assumer (le CLI acceptera quand

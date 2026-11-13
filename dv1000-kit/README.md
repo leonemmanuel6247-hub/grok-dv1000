@@ -91,6 +91,7 @@ binaire (sinon : `Invalid params: unknown model id`).
 | `GROK_BRIDGE_PORT` | socket TCP du bridge natif | 8091 |
 | `GROK_BRIDGE_TIMEOUT` | timeout d'une génération (s) | 660 |
 | `GROK_BRIDGE_LOG` | log du bridge | logs/bridge-host.log |
+| `GROK_BRIDGE_COMPAT_FILE` | prompt d'échec JSON réinjecté (1×) après une sortie non-JSON | ~/.grok/rules/grok-json-compat-retry.md |
 | `GROK_FF_PROFILE` | profil Firefox du pont | ~/.mozilla/firefox/grokbuild |
 | `GROK_HOME` | racine config CLI | ~/.grok |
 
@@ -145,21 +146,43 @@ inference_idle_timeout_secs = 86400
 | version ancienne (1.0.0) | vieux zip / cache Firefox | fermer Firefox + relancer install-firefox.sh |
 | fournisseur « aucun » (popup) | aucune requête encore OU mauvais profil | envoyer une requête / bon profil |
 
+## UNE IA, pas d'orchestration (sous-agents / workflows désactivés)
+
+`config.nemapi.toml` déclare maintenant :
+
+```toml
+[subagents]
+enabled = false    # retire spawn_subagent ; le cycle de vie shell
+                   # (get/wait/kill_command_or_subagent) RESTE pour les builds
+                   # en arrière-plan
+[workflows]
+enabled = false    # retire l'outil workflow (défaut: ON)
+```
+
+Aucune modification de code, aucune recompilation : rejoue
+`./scripts/apply-nemapi-config.sh` pour appliquer sur ta machine.
+
 ## Améliorations du pont (FIREFOX bridge)
 
 État dans CE dépôt :
-- `rules/grok-bridge-system.md` — **durci** : format unique JSON de tool_call,
-  **interdiction de toute réponse sans appel d'outil**, prompt système une seule
-  fois, travail en delta.
+- `rules/grok-bridge-system.md` — **réécrit** : sortie entièrement JSON
+  `{"name","arguments"}` ; outil réel **ou** canal virtuel `speech`/`thought`
+  (texte simple dans le CLI) ; interdiction absolue de réponse sans JSON ;
+  règles d'échappement des caractères spéciaux (`\uXXXX` hexa, décimal et
+  base64 interdits au modèle) ; exemples de JSON ; prompt envoyé une seule fois.
+- `rules/grok-json-compat-retry.md` — **nouveau** : prompt d'échec envoyé UNE
+  fois après une sortie non-JSON (réinjecté automatiquement par le pont de
+  référence ; à porter chez toi sinon).
 - `dv1000-kit/bridge/` — **implémentation de référence** (stdlib-only) du
   SERVEUR OpenAI (:8090) et de l'hôte natif nativeMessaging (:8091) : prompt
   système une seule fois par conversation, delta-only, extraction du premier
   JSON d'outil (fence / `<tool_call>` / objet équilibré), validation contre la
-  liste `tools`, `finish_reason:"tool_calls"` propre, SSE texte→tool_calls→
-  `[DONE]`, audit JSONL (arguments hashés), `POST /reset`. Tests hors-ligne :
-  `python3 dv1000-kit/bridge/test_bridge.py`. Voir `dv1000-kit/bridge/README.md`
-  (contrat filaire, manifest, limites). L'extension `content.js` reste hors
-  périmètre par décision ; `dv1000-kit/PONT-AMELIORATIONS.md` reste le guide
+  liste `tools` ∪ {`speech`,`thought`}, `finish_reason:"tool_calls"` propre,
+  **réessai automatique unique** avec le prompt d'échec JSON, SSE
+  texte→tool_calls→`[DONE]`, audit JSONL (arguments hashés), `POST /reset`.
+  Tests hors-ligne : `python3 dv1000-kit/bridge/test_bridge.py`. Voir
+  `dv1000-kit/bridge/README.md` (contrat filaire, manifest, limites).
+  L'extension `content.js` reste hors périmètre par décision ; `dv1000-kit/PONT-AMELIORATIONS.md` reste le guide
   pour porter tout cela sur TON pont existant du paquet firefox-addon.
 
 ## Sécurité / limites

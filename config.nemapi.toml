@@ -35,6 +35,16 @@ remote_fetch             = false   # aucun catalogue distant (sinon il écrase [
 write_file               = true
 subagent_model_inheritance = true   # pas de sous-agent dédié
 
+# UNE IA, pas d'orchestration : sous-agents et workflows désactivés.
+# [subagents] enabled=false retire l'outil spawn_subagent ; le cycle de vie
+# shell (get_command_or_subagent_output / wait_commands_or_subagents /
+# kill_command_or_subagent) reste, il sert aussi aux commandes en arrière-plan.
+[subagents]
+enabled = false
+# [workflows] enabled=false retire l'outil workflow (défaut: ON).
+[workflows]
+enabled = false
+
 # ---------------------------------------------------------------------------
 # Un [model.<id>] PAR onglet fournisseur.
 # Déclaré ici => valide pour le CLI même absent du catalogue compilé.
