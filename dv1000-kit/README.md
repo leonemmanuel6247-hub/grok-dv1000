@@ -151,12 +151,16 @@ inference_idle_timeout_secs = 86400
 - `rules/grok-bridge-system.md` — **durci** : format unique JSON de tool_call,
   **interdiction de toute réponse sans appel d'outil**, prompt système une seule
   fois, travail en delta.
-
-À appliquer dans le paquet **firefox-addon** (NON fourni ici) — voir
-`dv1000-kit/PONT-AMELIORATIONS.md` :
-nettoyage/extraction du premier JSON d'outil, validation des noms contre la liste
-`tools` reçue, `finish_reason:"tool_calls"` propre, prompt système une seule fois
-par session, envois en delta, streaming texte→tool_calls→[DONE], audit.
+- `dv1000-kit/bridge/` — **implémentation de référence** (stdlib-only) du
+  SERVEUR OpenAI (:8090) et de l'hôte natif nativeMessaging (:8091) : prompt
+  système une seule fois par conversation, delta-only, extraction du premier
+  JSON d'outil (fence / `<tool_call>` / objet équilibré), validation contre la
+  liste `tools`, `finish_reason:"tool_calls"` propre, SSE texte→tool_calls→
+  `[DONE]`, audit JSONL (arguments hashés), `POST /reset`. Tests hors-ligne :
+  `python3 dv1000-kit/bridge/test_bridge.py`. Voir `dv1000-kit/bridge/README.md`
+  (contrat filaire, manifest, limites). L'extension `content.js` reste hors
+  périmètre par décision ; `dv1000-kit/PONT-AMELIORATIONS.md` reste le guide
+  pour porter tout cela sur TON pont existant du paquet firefox-addon.
 
 ## Sécurité / limites
 

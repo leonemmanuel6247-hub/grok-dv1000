@@ -1,0 +1,7 @@
+{
+  "name": "com.grokbuild.bridge",
+  "description": "Grok Build --> onglet web via nativeMessaging (profil grokbuild)",
+  "path": "__BRIDGE_HOST_PATH__",
+  "type": "stdio",
+  "allowed_extensions": ["__EXTENSION_ID_DE_TON_PAQUET_FIREFOX-ADDON__"]
+}

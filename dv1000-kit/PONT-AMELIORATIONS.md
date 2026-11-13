@@ -2,9 +2,20 @@
 
 Ce document décrit QUOI changer dans le paquet **firefox-addon** (le pont :
 `nemapi-firefox-server.py`, `content.js`, gestion des sessions), qui n'est
-**pas dans ce dépôt**. Sans ces changements côté pont, le renforcement du
-prompt (rules/grok-bridge-system.md) aide mais ne suffit pas : le CLI
-dépend de la propreté formelle du `tool_calls`.
+**pas dans ce dépôt**.
+
+**Nouveau** : `dv1000-kit/bridge/` contient une **implémentation de référence**
+complète, stdlib-only, du serveur (partie 1) et de l'hôte natif nativeMessaging
++ sessions (partie 2) — `nemapi-firefox-server.py`, `grok-bridge-host.py`,
+tests `test_bridge.py`, contrat filaire et manifest d'exemple documentés dans
+`dv1000-kit/bridge/README.md`. Deux voies possibles :
+1. Installer la référence telle quelle (elle est complète et testée hors-ligne) ;
+2. Porter les mêmes fonctions dans TON pont existant (checklist ci-dessous).
+
+L'extension `content.js` (partie 3) reste hors périmètre : les sélecteurs du
+site fournisseur peuvent casser sans préavis. Sans changements côté pont, le
+renforcement du prompt (rules/grok-bridge-system.md) aide mais ne suffit pas :
+le CLI dépend de la propreté formelle du `tool_calls`.
 
 ## Rappel de la boucle
 

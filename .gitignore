@@ -1,3 +1,6 @@
 /target
 **/*.rs.bk
 .DS_Store
+__pycache__/
+logs/
+dv1000-kit/bridge/logs/
