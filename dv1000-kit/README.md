@@ -145,6 +145,19 @@ inference_idle_timeout_secs = 86400
 | version ancienne (1.0.0) | vieux zip / cache Firefox | fermer Firefox + relancer install-firefox.sh |
 | fournisseur « aucun » (popup) | aucune requête encore OU mauvais profil | envoyer une requête / bon profil |
 
+## Améliorations du pont (FIREFOX bridge)
+
+État dans CE dépôt :
+- `rules/grok-bridge-system.md` — **durci** : format unique JSON de tool_call,
+  **interdiction de toute réponse sans appel d'outil**, prompt système une seule
+  fois, travail en delta.
+
+À appliquer dans le paquet **firefox-addon** (NON fourni ici) — voir
+`dv1000-kit/PONT-AMELIORATIONS.md` :
+nettoyage/extraction du premier JSON d'outil, validation des noms contre la liste
+`tools` reçue, `finish_reason:"tool_calls"` propre, prompt système une seule fois
+par session, envois en delta, streaming texte→tool_calls→[DONE], audit.
+
 ## Sécurité / limites
 
 - `NEMAPI_API_KEY=local` est volontairement factice ; ne PAS mettre de vraie
